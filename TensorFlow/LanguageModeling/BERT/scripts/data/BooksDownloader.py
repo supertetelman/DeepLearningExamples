@@ -20,6 +20,7 @@ class BooksDownloader:
 
 
     def download(self):
+        # INFO: These paths are hardcoded in the Dockerfile
         bookscorpus_download_command = 'python3 /workspace/bookcorpus/download_files.py --list /workspace/bookcorpus/url_list.jsonl --out'
         bookscorpus_download_command += ' ' + self.save_path + '/bookscorpus'
         bookscorpus_download_command += ' --trash-bad-count'

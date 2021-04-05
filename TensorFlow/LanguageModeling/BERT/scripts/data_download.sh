@@ -23,4 +23,4 @@ docker run --gpus $NV_VISIBLE_DEVICES \
     --ulimit memlock=-1 \
     --ulimit stack=67108864 \
     -v $PWD:/workspace/bert \
-    bert bash -c "bash data/create_datasets_from_start.sh ${to_download}"
+    bert bash -c "bash scripts/data/create_datasets_from_start.sh ${to_download}"

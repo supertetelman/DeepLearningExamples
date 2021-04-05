@@ -24,11 +24,25 @@ import os
 import pprint
 import subprocess
 
+# INFO: this is hardcoded in the Dockerfile
+path_to_wikiextractor_in_container = '/workspace/wikiextractor/WikiExtractor.py'
 
 def main(args):
-    working_dir = os.environ['BERT_PREP_WORKING_DIR']
 
-    print('Working Directory:', working_dir)
+    # These values are set by default in he data_download.sh and create_datasets_from_start.sh scripts
+    directories = {
+      'data_dir': os.environ['DLE_DATA_DIR'],
+      'results_dir': os.environ['DLE_RESULTS_DIR'],
+      'model_name': os.environ['DLE_MODEL_NAME'],
+      'workspace_dir': os.environ['DLE_WORKSPACE_DIR'],
+      'scripts_dir': os.environ['DLE_SCRIPTS_DIR'],
+      'raw_data_dir': os.environ['DLE_RAW_DATA_DIR'],
+      'processed_data_dir': os.environ['DLE_PROCESSED_DATA_DIR'],
+      'pretrain_models_dir': os.environ['DLE_PRETRAINED_MODELS_DIR'],
+      'results_dir': os.environ['DLE_MODEL_RESULTS_DIR'],
+    }
+
+    print(f'Directory structure: {directories}') 
     print('Action:', args.action)
     print('Dataset Name:', args.dataset)
 
@@ -39,13 +53,15 @@ def main(args):
                                   + "_max_pred_" + str(args.max_predictions_per_seq) + "_masked_lm_prob_" + str(args.masked_lm_prob) \
                                   + "_random_seed_" + str(args.random_seed) + "_dupe_factor_" + str(args.dupe_factor) \
                                   + "_shard_" + str(args.n_training_shards) + "_test_split_" + str(int(args.fraction_test_set * 100))
+
+    # TODO: Is the sharded/formatted data something we might re-use? OR just tfrecrod and hdf5
     directory_structure = {
-        'download' : working_dir + '/download',    # Downloaded and decompressed
-        'extracted' : working_dir +'/extracted',    # Extracted from whatever the initial format is (e.g., wikiextractor)
-        'formatted' : working_dir + '/formatted_one_article_per_line',    # This is the level where all sources should look the same
-        'sharded' : working_dir + '/sharded',
-        'tfrecord' : working_dir + '/tfrecord' + hdf5_tfrecord_folder_prefix,
-        'hdf5': working_dir + '/hdf5'+ hdf5_tfrecord_folder_prefix,
+        'download' : directories['raw_data_dir'] + '/download',    # Downloaded and decompressed
+        'extracted' : directories['raw_data_dir'] + '/extracted',    # Extracted from whatever the initial format is (e.g., wikiextractor)
+        'formatted' : directories['raw_data_dir'] + '/formatted_one_article_per_line',    # This is the level where all sources should look the same
+        'sharded' : directories['raw_data_dir'] + '/sharded',
+        'tfrecord' : directories['processed_data_dir'] + '/tfrecord' + hdf5_tfrecord_folder_prefix,
+        'hdf5': directories['processed_data_dir'] + '/hdf5'+ hdf5_tfrecord_folder_prefix,
     }
 
     print('\nDirectory Structure:')
@@ -73,14 +89,12 @@ def main(args):
 
         if args.dataset == 'bookscorpus':
             books_path = directory_structure['download'] + '/bookscorpus'
-            #books_path = directory_structure['download']
             output_filename = directory_structure['formatted'] + '/bookscorpus_one_book_per_line.txt'
             books_formatter = BookscorpusTextFormatting.BookscorpusTextFormatting(books_path, output_filename, recursive=True)
             books_formatter.merge()
 
         elif args.dataset == 'wikicorpus_en':
             if args.skip_wikiextractor == 0:
-                path_to_wikiextractor_in_container = '/workspace/wikiextractor/WikiExtractor.py'
                 wikiextractor_command = path_to_wikiextractor_in_container + ' ' + directory_structure['download'] + '/' + args.dataset + '/wikicorpus_en.xml ' + '-b 100M --processes ' + str(args.n_processes) + ' -o ' + directory_structure['extracted'] + '/' + args.dataset
                 print('WikiExtractor Command:', wikiextractor_command)
                 wikiextractor_process = subprocess.run(wikiextractor_command, shell=True, check=True)
@@ -93,7 +107,6 @@ def main(args):
         elif args.dataset == 'wikicorpus_zh':
             assert False, 'wikicorpus_zh not fully supported at this time. The simplified/tradition Chinese data needs to be translated and properly segmented still, and should work once this step is added.'
             if args.skip_wikiextractor == 0:
-                path_to_wikiextractor_in_container = '/workspace/wikiextractor/WikiExtractor.py'
                 wikiextractor_command = path_to_wikiextractor_in_container + ' ' + directory_structure['download'] + '/' + args.dataset + '/wikicorpus_zh.xml ' + '-b 100M --processes ' + str(args.n_processes) + ' -o ' + directory_structure['extracted'] + '/' + args.dataset
                 print('WikiExtractor Command:', wikiextractor_command)
                 wikiextractor_process = subprocess.run(wikiextractor_command, shell=True, check=True)
@@ -166,7 +179,7 @@ def main(args):
         last_process = None
 
         def create_record_worker(filename_prefix, shard_id, output_format='tfrecord', split='training'):
-            bert_preprocessing_command = 'python /workspace/bert/utils/create_pretraining_data.py'
+            bert_preprocessing_command = f'python {workspace_dir}/utils/create_pretraining_data.py'
             bert_preprocessing_command += ' --input_file=' + directory_structure['sharded'] + '/' + args.dataset + '/' + split + '/' + filename_prefix + '_' + str(shard_id) + '.txt'
             bert_preprocessing_command += ' --output_file=' + directory_structure['tfrecord'] + '/' + args.dataset + '/' + split + '/' + filename_prefix + '_' + str(shard_id) + '.' + output_format
             bert_preprocessing_command += ' --vocab_file=' + args.vocab_file
@@ -208,7 +221,7 @@ def main(args):
         last_process = None
 
         def create_record_worker(filename_prefix, shard_id, output_format='hdf5'):
-            bert_preprocessing_command = 'python /workspace/bert/utils/create_pretraining_data.py'
+            bert_preprocessing_command = f'python {workspace_dir}/utils/create_pretraining_data.py'
             bert_preprocessing_command += ' --input_file=' + directory_structure['sharded'] + '/' + args.dataset + '/' + filename_prefix + '_' + str(shard_id) + '.txt'
             bert_preprocessing_command += ' --output_file=' + directory_structure['hdf5'] + '/' + args.dataset + '/' + filename_prefix + '_' + str(shard_id) + '.' + output_format
             bert_preprocessing_command += ' --vocab_file=' + args.vocab_file

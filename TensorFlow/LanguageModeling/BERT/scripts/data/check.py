@@ -13,10 +13,25 @@
 
 
 import csv
+import os
+    
+# These values are set by default in he data_download.sh and create_datasets_from_start.sh scripts
+directories = {
+  'data_dir': os.environ['DLE_DATA_DIR'],
+  'results_dir': os.environ['DLE_RESULTS_DIR'],
+  'model_name': os.environ['DLE_MODEL_NAME'],
+  'workspace_dir': os.environ['DLE_WORKSPACE_DIR'],
+  'scripts_dir': os.environ['DLE_SCRIPTS_DIR'],
+  'raw_data_dir': os.environ['DLE_RAW_DATA_DIR'],
+  'processed_data_dir': os.environ['DLE_PROCESSED_DATA_DIR'],
+  'pretrain_models_dir': os.environ['DLE_PRETRAINED_MODELS_DIR'],
+  'results_dir': os.environ['DLE_MODEL_RESULTS_DIR'],
+}
 
-
-o = csv.reader(open("data/biobert/chemprot-data_treeLSTM/dev.tsv", "r"), delimiter="\t")
-nv = csv.reader(open("data/biobert/ChemProt_NV/dev.tsv", "r"), delimiter="\t")
+o = csv.reader(open(os.join(directories['processed_data_dir'], directories['model_name'],
+        'chemprot-data_treeLSTM/dev.tsv', "r"), delimiter="\t")
+nv = csv.reader(open(os.join(directories['processed_data_dir'], directories['model_name'],
+        'ChemProt_NV/dev.tsv', "r"), delimiter="\t")
 
 count = {}
 for l, i in enumerate(nv):
